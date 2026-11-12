@@ -1,0 +1,111 @@
+openapi: 3.0.3
+info:
+  title: API SI-Budaya Malang - Modul Reservasi Tiket
+  description: Spesifikasi kontrak API untuk pemesanan tiket pertunjukan Tari Topeng Malangan.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Server Pengembangan Lokal
+
+paths:
+  /reservasi:
+    post:
+      summary: Membuat pemesanan tiket pertunjukan baru
+      description: |
+        **Pre-conditions:**
+        - Pengguna sudah login (token JWT valid).
+        - `idEvent` tersedia dan status jadwal aktif.
+        - `jumlahTiket` >= 1 dan tidak melebihi sisa kuota.
+        
+        **Post-conditions:**
+        - Data tersimpan di tabel `Reservasi` dan `ItemTiket`.
+        - Kuota kursi event berkurang sesuai `jumlahTiket`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservasiRequest'
+      responses:
+        '201':
+          description: Reservasi tiket berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservasiResponse'
+        '400':
+          description: Permintaan tidak valid atau kuota tiket habis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ReservasiRequest:
+      type: object
+      required:
+        - idEvent
+        - jumlahTiket
+        - metodePembayaran
+      properties:
+        idEvent:
+          type: string
+          example: "EVT-TOPENG-01"
+        jumlahTiket:
+          type: integer
+          minimum: 1
+          example: 2
+        metodePembayaran:
+          type: string
+          enum: [QRIS, TRANSFER_BANK, E_WALLET]
+          example: "QRIS"
+
+    ReservasiResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Reservasi tiket berhasil dibuat"
+        data:
+          type: object
+          properties:
+            idReservasi:
+              type: string
+              example: "BK-2026-001"
+            tglReservasi:
+              type: string
+              format: date-time
+              example: "2026-11-12T10:30:00Z"
+            totalBayar:
+              type: number
+              format: double
+              example: 100000.0
+            statusPembayaran:
+              type: string
+              example: "PENDING"
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "error"
+        code:
+          type: string
+          example: "QUOTA_EXCEEDED"
+        message:
+          type: string
+          example: "Kuota kursi pertunjukan tidak mencukupi untuk jumlah tiket yang diminta."
